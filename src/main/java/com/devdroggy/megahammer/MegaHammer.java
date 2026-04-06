@@ -26,6 +26,9 @@ public class MegaHammer {
         event.enqueueWork(() -> {
             ModMessages.register();
         });
+        event.enqueueWork(() -> {
+            net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent.class.hashCode(); // กระตุ้นการโหลด
+        });
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {

@@ -1,5 +1,6 @@
 package com.devdroggy.megahammer.item;
 
+import com.devdroggy.megahammer.capability.HammerUpgradeProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -30,11 +31,11 @@ import java.util.List;
 import java.util.Optional;
 
 public class HammerItem extends PickaxeItem {
-
     public HammerItem(Tier pTier, int pAttackDamageModifier, float pAttackSpeedModifier, Properties pProperties) {
         super(pTier, pAttackDamageModifier, pAttackSpeedModifier, pProperties);
     }
 
+    // ดึงค่า Range (ขนาดกว้างยาว) จากตัวค้อนเหมือนเดิม
     public int getHammerRange(ItemStack stack, String key, int defaultValue) {
         CompoundTag nbt = stack.getOrCreateTag();
         if (!nbt.contains(key)) { nbt.putInt(key, defaultValue); }
@@ -45,28 +46,41 @@ public class HammerItem extends PickaxeItem {
     public boolean onBlockStartBreak(ItemStack itemstack, BlockPos pos, Player player) {
         Level level = player.level();
         if (level.isClientSide) return false;
-        if (player.isShiftKeyDown()) return false;
 
-        HitResult hit = getPlayerPOVHitResult(level, player, ClipContext.Fluid.NONE);
-        if (hit.getType() == HitResult.Type.BLOCK) {
-            BlockHitResult blockHit = (BlockHitResult) hit;
+        // ถามระบบ Capability ว่าผู้เล่นคนนี้มีพลังอะไรติดตัวบ้าง (ใช้ .map จัดการ)
+        return player.getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).map(upgrades -> {
 
-            int up = getHammerRange(itemstack, "RangeUp", 1);
-            int down = getHammerRange(itemstack, "RangeDown", 1);
-            int left = getHammerRange(itemstack, "RangeLeft", 1);
-            int right = getHammerRange(itemstack, "RangeRight", 1);
-            int depth = getHammerRange(itemstack, "RangeDepth", 0);
+            boolean isUnbreakable = upgrades.durability == 2;
 
-            // ดึงสถานะพลังอัปเกรดทั้งหมด!
-            boolean isAutoSmelt = getHammerRange(itemstack, "AutoSmelt", 0) == 2;
-            boolean isMagnet = getHammerRange(itemstack, "Magnet", 0) == 2;
-            boolean isVoid = getHammerRange(itemstack, "Void", 0) == 2;
-            boolean isUnbreakable = getHammerRange(itemstack, "Durability", 0) == 2;
+            // --- ระบบ Safety Lock ---
+            if (!isUnbreakable && itemstack.getDamageValue() >= itemstack.getMaxDamage() - 1) {
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal("§c[!] Your hammer is broken! Repair it with Diamond in Anvil to continue using it."), true);
+                return true;
+            }
 
-            mineCustomArea(itemstack, (ServerLevel) level, pos, player, blockHit.getDirection(),
-                    up, down, left, right, depth, isAutoSmelt, isMagnet, isVoid, isUnbreakable);
-        }
-        return true;
+            if (player.isShiftKeyDown()) return false;
+
+            HitResult hit = getPlayerPOVHitResult(level, player, ClipContext.Fluid.NONE);
+            if (hit.getType() == HitResult.Type.BLOCK) {
+                BlockHitResult blockHit = (BlockHitResult) hit;
+
+                // ดึงขนาดขุดจาก NBT ของค้อน
+                int up = getHammerRange(itemstack, "RangeUp", 1);
+                int down = getHammerRange(itemstack, "RangeDown", 1);
+                int left = getHammerRange(itemstack, "RangeLeft", 1);
+                int right = getHammerRange(itemstack, "RangeRight", 1);
+                int depth = getHammerRange(itemstack, "RangeDepth", 0);
+
+                // ดึงพลังอัปเกรดจาก สมองผู้เล่น (Capability)
+                boolean isAutoSmelt = upgrades.smelt == 2;
+                boolean isMagnet = upgrades.magnet == 2;
+                boolean isVoid = upgrades.voidJunk == 2;
+
+                mineCustomArea(itemstack, (ServerLevel) level, pos, player, blockHit.getDirection(),
+                        up, down, left, right, depth, isAutoSmelt, isMagnet, isVoid, isUnbreakable);
+            }
+            return true;
+        }).orElse(false); // ถ้าดึง Capability ไม่ได้ ให้คืนค่า false (ขุดธรรมดา)
     }
 
     private void mineCustomArea(ItemStack stack, ServerLevel level, BlockPos centerPos, Player player, Direction sideHit,
@@ -93,12 +107,22 @@ public class HammerItem extends PickaxeItem {
                     BlockState targetState = level.getBlockState(targetPos);
 
                     if (!targetState.isAir() && targetState.getDestroySpeed(level, targetPos) >= 0) {
+
+                        // เช็ค Safety Lock กลางลูป
+                        if (!isUnbreakable && stack.getDamageValue() >= stack.getMaxDamage() - 1) {
+                            player.displayClientMessage(net.minecraft.network.chat.Component.literal("§c[!] Your hammer is broken! Repair it with Diamond in Anvil to continue using it."), true);
+                            if (anythingBroke) {
+                                player.level().playSound(null, centerPos, SoundEvents.STONE_BREAK, SoundSource.BLOCKS, 1.0F, 1.0F);
+                            }
+                            return;
+                        }
+
                         List<ItemStack> drops = Block.getDrops(targetState, level, targetPos, level.getBlockEntity(targetPos), player, stack);
                         anythingBroke = true;
 
                         for (ItemStack drop : drops) {
                             ItemStack finalDrop = drop;
-							
+
                             if (isAutoSmelt) {
                                 SimpleContainer container = new SimpleContainer(drop);
                                 Optional<SmeltingRecipe> recipe = level.getRecipeManager().getRecipeFor(RecipeType.SMELTING, container, level);
@@ -107,33 +131,29 @@ public class HammerItem extends PickaxeItem {
                                     finalDrop.setCount(drop.getCount() * finalDrop.getCount());
                                 }
                             }
-							
+
                             if (isVoid) {
-                                Item item = finalDrop.getItem(); // <--- แก้ตรงนี้ครับ
-                                if (item == Items.COBBLESTONE || item == Items.COBBLED_DEEPSLATE || 
-                                    item == Items.DIRT || item == Items.GRAVEL || item == Items.NETHERRACK || 
-                                    item == Items.ANDESITE || item == Items.DIORITE || item == Items.GRANITE || 
-                                    item == Items.TUFF || item == Items.DEEPSLATE) {
-                                    
+                                Item item = finalDrop.getItem();
+                                if (item == Items.COBBLESTONE || item == Items.COBBLED_DEEPSLATE ||
+                                        item == Items.DIRT || item == Items.GRAVEL || item == Items.NETHERRACK ||
+                                        item == Items.ANDESITE || item == Items.DIORITE || item == Items.GRANITE ||
+                                        item == Items.TUFF || item == Items.DEEPSLATE) {
+
                                     continue;
                                 }
                             }
-							
+
                             if (isMagnet) {
-                                if (!player.getInventory().add(finalDrop)) { 
-                                    Block.popResource(level, targetPos, finalDrop); 
-                                }
-                            } else { 
-                                Block.popResource(level, targetPos, finalDrop); 
-                            }
+                                if (!player.getInventory().add(finalDrop)) { Block.popResource(level, targetPos, finalDrop); }
+                            } else { Block.popResource(level, targetPos, finalDrop); }
                         }
-						
+
                         level.setBlock(targetPos, Blocks.AIR.defaultBlockState(), 3);
-						
+
                         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, targetState),
                                 targetPos.getX() + 0.5, targetPos.getY() + 0.5, targetPos.getZ() + 0.5,
                                 5, 0.25, 0.25, 0.25, 0.05);
-                        
+
                         if (!isUnbreakable) {
                             stack.hurtAndBreak(1, player, (e) -> e.broadcastBreakEvent(EquipmentSlot.MAINHAND));
                         }
@@ -142,7 +162,6 @@ public class HammerItem extends PickaxeItem {
             }
         }
 
-        // --- NEW: หลังจากวน loop เสร็จ ค่อยมาเล่นเสียงตูมเปรียงเดียวที่ตรงกลาง ---
         if (anythingBroke) {
             player.level().playSound(null, centerPos, SoundEvents.STONE_BREAK, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
