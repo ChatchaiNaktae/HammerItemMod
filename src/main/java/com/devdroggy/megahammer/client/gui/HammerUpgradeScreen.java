@@ -1,5 +1,6 @@
 package com.devdroggy.megahammer.client.gui;
 
+import com.devdroggy.megahammer.config.ModConfig;
 import com.devdroggy.megahammer.item.HammerItem;
 import com.devdroggy.megahammer.network.HammerUpgradePacket;
 import com.devdroggy.megahammer.network.ModMessages;
@@ -59,10 +60,12 @@ public class HammerUpgradeScreen extends Screen {
     }
 
     private Button createUpgradeBtn(int id, int state, String name, int x, int y) {
-        String text = state == 0 ? "Unlock " + name + " (30 Lvl)" : (state == 1 ? name + ": OFF" : name + ": ON");
+        int cost = ModConfig.UPGRADE_XP_COST.get();
+
+        String text = state == 0 ? "Unlock " + name + " (" + cost + " Lvl)" : (state == 1 ? name + ": OFF" : name + ": ON");
         return Button.builder(Component.literal(text), b -> {
             ModMessages.sendToServer(new HammerUpgradePacket(id, state == 0 ? 0 : 1));
-            this.minecraft.setScreen(null); // ปิดหน้าจอเพื่อให้ระบบ Refresh ค่าใหม่
+            this.minecraft.setScreen(null);
         }).bounds(x, y, 200, 20).build();
     }
 

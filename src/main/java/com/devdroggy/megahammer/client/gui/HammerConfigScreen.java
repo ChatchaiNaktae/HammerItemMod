@@ -1,5 +1,6 @@
 package com.devdroggy.megahammer.client.gui;
 
+import com.devdroggy.megahammer.config.ModConfig;
 import com.devdroggy.megahammer.item.HammerItem;
 import com.devdroggy.megahammer.network.HammerConfigPacket;
 import com.devdroggy.megahammer.network.ModMessages;
@@ -12,9 +13,6 @@ import net.minecraft.world.item.ItemStack;
 public class HammerConfigScreen extends Screen {
     private final ItemStack hammer;
     private int up, down, left, right, depth;
-
-    private static final int MAX_RANGE = 3;
-    private static final int MAX_DEPTH = 4;
 
     public HammerConfigScreen(ItemStack hammer) {
         super(Component.literal("Mega Hammer Config"));
@@ -55,12 +53,15 @@ public class HammerConfigScreen extends Screen {
     }
 
     private void changeValue(String type, int amount) {
+        int maxR = ModConfig.MAX_RANGE.get();
+        int maxD = ModConfig.MAX_DEPTH.get();
+
         switch (type) {
-            case "up" -> up = Math.min(MAX_RANGE, Math.max(0, up + amount));
-            case "down" -> down = Math.min(MAX_RANGE, Math.max(0, down + amount));
-            case "left" -> left = Math.min(MAX_RANGE, Math.max(0, left + amount));
-            case "right" -> right = Math.min(MAX_RANGE, Math.max(0, right + amount));
-            case "depth" -> depth = Math.min(MAX_DEPTH, Math.max(0, depth + amount));
+            case "up" -> up = Math.min(maxR, Math.max(0, up + amount));
+            case "down" -> down = Math.min(maxR, Math.max(0, down + amount));
+            case "left" -> left = Math.min(maxR, Math.max(0, left + amount));
+            case "right" -> right = Math.min(maxR, Math.max(0, right + amount));
+            case "depth" -> depth = Math.min(maxD, Math.max(0, depth + amount));
         }
         ModMessages.sendToServer(new HammerConfigPacket(up, down, left, right, depth));
     }

@@ -1,6 +1,7 @@
 package com.devdroggy.megahammer.network;
 
 import com.devdroggy.megahammer.capability.HammerUpgradeProvider;
+import com.devdroggy.megahammer.config.ModConfig;
 import com.devdroggy.megahammer.init.ModItems;
 import com.devdroggy.megahammer.item.HammerItem;
 import net.minecraft.network.FriendlyByteBuf;
@@ -62,7 +63,8 @@ public class HammerUpgradePacket {
 
                 if (action == 0 && currentState == 0) { // กรณี: ขอปลดล็อก (Unlock)
                     boolean isCreative = player.isCreative();
-                    boolean hasXp = isCreative || player.experienceLevel >= 30;
+                    int cost = ModConfig.UPGRADE_XP_COST.get();
+                    boolean hasXp = isCreative || player.experienceLevel >= cost;
                     int moduleSlot = -1;
 
                     // ค้นหาว่ามีโมดูลในกระเป๋าไหม
@@ -78,7 +80,7 @@ public class HammerUpgradePacket {
                     // ถ้าเงื่อนไขครบถ้วน (XP พอ และมีของ)
                     if (hasXp && (isCreative || moduleSlot != -1)) {
                         if (!isCreative) {
-                            player.giveExperienceLevels(-30);
+                            player.giveExperienceLevels(-cost);
                             player.getInventory().removeItem(moduleSlot, 1);
                         }
 
