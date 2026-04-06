@@ -7,6 +7,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand; // <-- เพิ่ม Import ตัวนี้เข้ามา
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
@@ -41,7 +42,7 @@ public class HammerUpgradePacket {
             ItemStack stack = player.getMainHandItem();
             if (!(stack.getItem() instanceof HammerItem)) return;
 
-            // Map ID ให้ตรงกับไอเทม Module ที่ต้องใช้
+            // ผูก ID กับไอเทม Module ให้ถูกต้อง
             Item requiredModule = switch(upgradeId) {
                 case 1 -> ModItems.MAGNET_MODULE.get();
                 case 2 -> ModItems.VOID_MODULE.get();
@@ -49,7 +50,7 @@ public class HammerUpgradePacket {
                 default -> ModItems.AUTO_SMELT_MODULE.get();
             };
 
-            // ดึงข้อมูลจากสมอง (Capability) ของผู้เล่นแทนค้อน
+            // ดึงข้อมูลจากสมอง (Capability) ของผู้เล่น
             player.getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(upgrades -> {
 
                 int currentState = switch(upgradeId) {
@@ -59,11 +60,12 @@ public class HammerUpgradePacket {
                     default -> upgrades.smelt;
                 };
 
-                if (action == 0 && currentState == 0) { // ขอปลดล็อก
+                if (action == 0 && currentState == 0) { // กรณี: ขอปลดล็อก (Unlock)
                     boolean isCreative = player.isCreative();
                     boolean hasXp = isCreative || player.experienceLevel >= 30;
                     int moduleSlot = -1;
 
+                    // ค้นหาว่ามีโมดูลในกระเป๋าไหม
                     if (!isCreative) {
                         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                             if (player.getInventory().getItem(i).getItem() == requiredModule) {
@@ -73,13 +75,14 @@ public class HammerUpgradePacket {
                         }
                     }
 
-                    // ถ้าของครบ จัดการหักของและบันทึกพลังลงตัวละคร!
+                    // ถ้าเงื่อนไขครบถ้วน (XP พอ และมีของ)
                     if (hasXp && (isCreative || moduleSlot != -1)) {
                         if (!isCreative) {
                             player.giveExperienceLevels(-30);
                             player.getInventory().removeItem(moduleSlot, 1);
                         }
 
+                        // 1. เซฟพลังลง Capability ของผู้เล่น
                         switch(upgradeId) {
                             case 1 -> upgrades.magnet = 2;
                             case 2 -> upgrades.voidJunk = 2;
@@ -87,17 +90,25 @@ public class HammerUpgradePacket {
                             default -> upgrades.smelt = 2;
                         }
 
-                        // เพื่อให้ UI ของค้อนอัปเดตตามทันที เราจะเซฟลง NBT ของค้อนแถมไปด้วย
+                        // 2. เซฟค่าเดียวกันลงใน NBT ของค้อน (เพื่อให้หน้าจอ GUI เอาไปอ่านได้)
                         String nbtKey = switch(upgradeId) {
                             case 1 -> "Magnet"; case 2 -> "Void"; case 3 -> "Durability"; default -> "AutoSmelt";
                         };
-                        stack.getOrCreateTag().putInt(nbtKey, 2);
+
+                        // --- 🌟 จุดแก้บั๊ก (Magic Trick) 🌟 ---
+                        // คัดลอกค้อนอันเดิมขึ้นมา ยัด NBT ใหม่เข้าไป แล้วยัดกลับเข้ามือผู้เล่น
+                        // วิธีนี้เป็นการบังคับให้ Server ส่ง Packet ไปบอก Client ทันทีว่า "ค้อนนี้อัปเดตแล้วนะ!"
+                        ItemStack newStack = stack.copy();
+                        newStack.getOrCreateTag().putInt(nbtKey, 2);
+                        player.setItemInHand(InteractionHand.MAIN_HAND, newStack);
 
                         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.0F);
                     }
                 }
-                else if (action == 1 && currentState > 0) { // ขอสลับเปิดปิด
+                else if (action == 1 && currentState > 0) { // กรณี: ขอสลับเปิดปิด (Toggle)
                     int newState = (currentState == 1) ? 2 : 1;
+
+                    // 1. อัปเดตใน Capability
                     switch(upgradeId) {
                         case 1 -> upgrades.magnet = newState;
                         case 2 -> upgrades.voidJunk = newState;
@@ -108,7 +119,12 @@ public class HammerUpgradePacket {
                     String nbtKey = switch(upgradeId) {
                         case 1 -> "Magnet"; case 2 -> "Void"; case 3 -> "Durability"; default -> "AutoSmelt";
                     };
-                    stack.getOrCreateTag().putInt(nbtKey, newState);
+
+                    // --- 🌟 จุดแก้บั๊ก (Magic Trick) 🌟 ---
+                    // บังคับ Sync NBT ตัวล่าสุดกลับไปให้ผู้เล่น
+                    ItemStack newStack = stack.copy();
+                    newStack.getOrCreateTag().putInt(nbtKey, newState);
+                    player.setItemInHand(InteractionHand.MAIN_HAND, newStack);
 
                     player.level().playSound(null, player.blockPosition(), SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.5F, 1.0F);
                 }

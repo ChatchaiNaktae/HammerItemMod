@@ -42,6 +42,33 @@ public class HammerItem extends PickaxeItem {
         return nbt.getInt(key);
     }
 
+    // --- ใส่เพิ่มเข้าไปในคลาส HammerItem ---
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int itemSlot, boolean isSelected) {
+        super.inventoryTick(stack, level, entity, itemSlot, isSelected);
+
+        // ทำงานเฉพาะฝั่ง Server และเฉพาะตอนที่ผู้เล่นเป็นคนถือค้อน
+        if (!level.isClientSide && entity instanceof Player player) {
+            // ดึงสมอง (Capability) ของผู้เล่นมาเช็ค
+            player.getCapability(com.devdroggy.megahammer.capability.HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(upgrades -> {
+                CompoundTag nbt = stack.getOrCreateTag();
+                boolean isChanged = false;
+
+                // เช็คว่า NBT ของค้อน ตรงกับ Capability ของคนถือไหม?
+                // ถ้าไม่ตรง (เช่น ค้อนเพิ่งคราฟต์มาใหม่) ให้ก็อปปี้พลังใส่ค้อนทันที
+                if (nbt.getInt("AutoSmelt") != upgrades.smelt) { nbt.putInt("AutoSmelt", upgrades.smelt); isChanged = true; }
+                if (nbt.getInt("Magnet") != upgrades.magnet) { nbt.putInt("Magnet", upgrades.magnet); isChanged = true; }
+                if (nbt.getInt("Void") != upgrades.voidJunk) { nbt.putInt("Void", upgrades.voidJunk); isChanged = true; }
+                if (nbt.getInt("Durability") != upgrades.durability) { nbt.putInt("Durability", upgrades.durability); isChanged = true; }
+
+                // ถ้ามีการอัปเดตข้อมูลใหม่ บังคับให้ Server ส่งข้อมูลค้อนนี้ไปอัปเดตหน้าจอ Client ทันที
+                if (isChanged) {
+                    player.getInventory().setItem(itemSlot, stack);
+                }
+            });
+        }
+    }
+
     @Override
     public boolean onBlockStartBreak(ItemStack itemstack, BlockPos pos, Player player) {
         Level level = player.level();
