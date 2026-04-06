@@ -97,12 +97,6 @@ public class HammerItem extends PickaxeItem {
                         anythingBroke = true; // บันทึกว่ามีของแตก
 
                         for (ItemStack drop : drops) {
-                            if (isVoid) {
-                                Item item = drop.getItem();
-                                if (item == Items.COBBLESTONE || item == Items.DIRT || item == Items.GRAVEL || item == Items.NETHERRACK) {
-                                    continue;
-                                }
-                            }
                             ItemStack finalDrop = drop;
                             if (isAutoSmelt) {
                                 SimpleContainer container = new SimpleContainer(drop);
@@ -110,6 +104,16 @@ public class HammerItem extends PickaxeItem {
                                 if (recipe.isPresent()) {
                                     finalDrop = recipe.get().getResultItem(level.registryAccess()).copy();
                                     finalDrop.setCount(drop.getCount() * finalDrop.getCount());
+                                }
+                            }
+							if (isVoid) {
+                                Item item = drop.getItem();
+                                if (item == Items.COBBLESTONE || item == Items.COBBLED_DEEPSLATE || 
+                                    item == Items.DIRT || item == Items.GRAVEL || item == Items.NETHERRACK || 
+                                    item == Items.ANDESITE || item == Items.DIORITE || item == Items.GRANITE || 
+                                    item == Items.TUFF || item == Items.DEEPSLATE) {
+                                    
+                                    continue;
                                 }
                             }
                             if (isMagnet) {
