@@ -12,15 +12,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderHighlightEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Mod.EventBusSubscriber(modid = "megahammer", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class BlockHighlightRenderer {
@@ -29,6 +33,7 @@ public class BlockHighlightRenderer {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null || player.level() == null) return;
+        Level level = player.level();
 
         ItemStack mainHand = player.getMainHandItem();
         if (!(mainHand.getItem() instanceof HammerItem hammerItem)) return;
@@ -62,7 +67,15 @@ public class BlockHighlightRenderer {
         }
         Direction depthDir = sideHit.getOpposite();
 
-        AABB customBox = new AABB(centerPos);
+        Camera camera = event.getCamera();
+        double camX = camera.getPosition().x;
+        double camY = camera.getPosition().y;
+        double camZ = camera.getPosition().z;
+        PoseStack poseStack = event.getPoseStack();
+
+        // 1. ค้นหาและรวบรวมตำแหน่งกล่องที่ถูกต้อง (ใส่ List ไว้ก่อนวาด)
+        List<AABB> boxesToRender = new ArrayList<>();
+
         for (int d = 0; d <= depth; d++) {
             for (int h = -left; h <= right; h++) {
                 for (int v = -down; v <= up; v++) {
@@ -70,35 +83,35 @@ public class BlockHighlightRenderer {
                             .relative(depthDir, d)
                             .relative(h > 0 ? rightDir : leftDir, Math.abs(h))
                             .relative(v > 0 ? upDir : downDir, Math.abs(v));
-                    customBox = customBox.minmax(new AABB(targetPos));
+
+                    if (level.isLoaded(targetPos)) {
+                        BlockState targetState = level.getBlockState(targetPos);
+
+                        if (!targetState.isAir() && targetState.getDestroySpeed(level, targetPos) >= 0) {
+                            AABB box = new AABB(targetPos).inflate(0.005D);
+                            AABB renderBox = box.move(-camX, -camY, -camZ);
+                            boxesToRender.add(renderBox);
+                        }
+                    }
                 }
             }
         }
 
-        // Expand the box slightly so it doesn't Z-fight (glitch) with the actual block textures
-        customBox = customBox.inflate(0.005D);
-
-        Camera camera = event.getCamera();
-        double camX = camera.getPosition().x;
-        double camY = camera.getPosition().y;
-        double camZ = camera.getPosition().z;
-        AABB renderBox = customBox.move(-camX, -camY, -camZ);
-
-        PoseStack poseStack = event.getPoseStack();
-
-        // 1. Draw the Solid Translucent Red Box (Color: R=1, G=0, B=0, Alpha=0.3)
+        // 2. วาดกล่องสีแดงทึบ ทั้งหมดรวดเดียว
         VertexConsumer solidConsumer = event.getMultiBufferSource().getBuffer(ModRenderTypes.TRANSLUCENT_BOX);
-        drawFilledBox(poseStack, solidConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.3F);
+        for (AABB renderBox : boxesToRender) {
+            drawFilledBox(poseStack, solidConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.3F);
+        }
 
-        // 2. Draw a bright red outline on top of it for crisp edges
+        // 3. วาดเส้นขอบ ทั้งหมดรวดเดียว
         VertexConsumer lineConsumer = event.getMultiBufferSource().getBuffer(RenderType.lines());
-        LevelRenderer.renderLineBox(poseStack, lineConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.8F);
+        for (AABB renderBox : boxesToRender) {
+            LevelRenderer.renderLineBox(poseStack, lineConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.8F);
+        }
 
-        // Cancel the vanilla black outline
         event.setCanceled(true);
     }
 
-    // Helper method to draw a 3D box using Math Matrices (Exact precision required)
     private static void drawFilledBox(PoseStack poseStack, VertexConsumer consumer, AABB box, float r, float g, float b, float a) {
         Matrix4f matrix = poseStack.last().pose();
         float minX = (float) box.minX; float minY = (float) box.minY; float minZ = (float) box.minZ;
