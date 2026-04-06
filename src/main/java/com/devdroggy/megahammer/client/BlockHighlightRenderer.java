@@ -1,6 +1,7 @@
 package com.devdroggy.megahammer.client;
 
 import com.devdroggy.megahammer.client.renderer.ModRenderTypes;
+import com.devdroggy.megahammer.config.ModConfig;
 import com.devdroggy.megahammer.item.HammerItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -73,8 +74,8 @@ public class BlockHighlightRenderer {
         double camZ = camera.getPosition().z;
         PoseStack poseStack = event.getPoseStack();
 
-        // 1. ค้นหาและรวบรวมตำแหน่งกล่องที่ถูกต้อง (ใส่ List ไว้ก่อนวาด)
         List<AABB> boxesToRender = new ArrayList<>();
+        AABB giantBox = null;
 
         for (int d = 0; d <= depth; d++) {
             for (int h = -left; h <= right; h++) {
@@ -88,24 +89,45 @@ public class BlockHighlightRenderer {
                         BlockState targetState = level.getBlockState(targetPos);
 
                         if (!targetState.isAir() && targetState.getDestroySpeed(level, targetPos) >= 0) {
-                            AABB box = new AABB(targetPos).inflate(0.005D);
-                            AABB renderBox = box.move(-camX, -camY, -camZ);
-                            boxesToRender.add(renderBox);
+                            AABB box = new AABB(targetPos);
+                            boxesToRender.add(box);
+
+                            if (giantBox == null) {
+                                giantBox = box;
+                            } else {
+                                giantBox = giantBox.minmax(box);
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 2. วาดกล่องสีแดงทึบ ทั้งหมดรวดเดียว
-        VertexConsumer solidConsumer = event.getMultiBufferSource().getBuffer(ModRenderTypes.TRANSLUCENT_BOX);
-        for (AABB renderBox : boxesToRender) {
-            drawFilledBox(poseStack, solidConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.3F);
-        }
+        if (boxesToRender.isEmpty() || giantBox == null) return;
 
-        // 3. วาดเส้นขอบ ทั้งหมดรวดเดียว
-        VertexConsumer lineConsumer = event.getMultiBufferSource().getBuffer(RenderType.lines());
-        for (AABB renderBox : boxesToRender) {
+        boolean isGrid = ModConfig.RENDER_BLOCK_GRID.get();
+
+        if (isGrid) {
+            // --- 🌟 แก้บั๊กตรงนี้: ขอคิววาดทึบ วาดให้เสร็จก่อน ---
+            VertexConsumer solidConsumer = event.getMultiBufferSource().getBuffer(ModRenderTypes.TRANSLUCENT_BOX);
+            for (AABB box : boxesToRender) {
+                AABB renderBox = box.inflate(0.005D).move(-camX, -camY, -camZ);
+                drawFilledBox(poseStack, solidConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.3F);
+            }
+
+            // --- แล้วค่อยขอคิววาดเส้นขอบ ---
+            VertexConsumer lineConsumer = event.getMultiBufferSource().getBuffer(RenderType.lines());
+            for (AABB box : boxesToRender) {
+                AABB renderBox = box.inflate(0.005D).move(-camX, -camY, -camZ);
+                LevelRenderer.renderLineBox(poseStack, lineConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.8F);
+            }
+        } else {
+            // --- ทำแบบเดียวกันกับโหมด Giant Box ---
+            VertexConsumer solidConsumer = event.getMultiBufferSource().getBuffer(ModRenderTypes.TRANSLUCENT_BOX);
+            AABB renderBox = giantBox.inflate(0.005D).move(-camX, -camY, -camZ);
+            drawFilledBox(poseStack, solidConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.3F);
+
+            VertexConsumer lineConsumer = event.getMultiBufferSource().getBuffer(RenderType.lines());
             LevelRenderer.renderLineBox(poseStack, lineConsumer, renderBox, 1.0F, 0.0F, 0.0F, 0.8F);
         }
 

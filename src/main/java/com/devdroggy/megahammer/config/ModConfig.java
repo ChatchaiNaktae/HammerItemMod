@@ -11,6 +11,7 @@ public class ModConfig {
     public static final ForgeConfigSpec.ConfigValue<Integer> MAX_RANGE;
     public static final ForgeConfigSpec.ConfigValue<Integer> MAX_DEPTH;
     public static final ForgeConfigSpec.ConfigValue<Integer> UPGRADE_XP_COST;
+    public static final ForgeConfigSpec.ConfigValue<Boolean> RENDER_BLOCK_GRID;
 
     static {
         BUILDER.push("Mega Hammer General Settings");
@@ -23,6 +24,9 @@ public class ModConfig {
 
         UPGRADE_XP_COST = BUILDER.comment("XP Level cost to unlock an upgrade module (Default: 30)")
                 .defineInRange("upgradeXpCost", 30, 0, 100); // Default 30, Min 0, Max 100
+
+        RENDER_BLOCK_GRID = BUILDER.comment("Render highlight as a grid for each block instead of one giant box (Default: true)")
+                .define("renderBlockGrid", true);
 
         BUILDER.pop();
         SPEC = BUILDER.build();
