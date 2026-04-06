@@ -1,5 +1,6 @@
 package com.devdroggy.megahammer;
 
+import com.devdroggy.megahammer.init.ModCreativeTabs;
 import com.devdroggy.megahammer.init.ModItems;
 import com.devdroggy.megahammer.network.ModMessages;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -18,9 +19,11 @@ public class MegaHammer {
     public MegaHammer() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.ModConfig.Type.COMMON, com.devdroggy.megahammer.config.ModConfig.SPEC);
+
         ModItems.ITEMS.register(modEventBus);
+        ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+
         modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(this::addCreative);
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -29,17 +32,7 @@ public class MegaHammer {
             ModMessages.register();
         });
         event.enqueueWork(() -> {
-            net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent.class.hashCode(); // กระตุ้นการโหลด
+            net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent.class.hashCode();
         });
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(ModItems.MEGA_HAMMER);
-            event.accept(ModItems.AUTO_SMELT_MODULE);
-            event.accept(ModItems.MAGNET_MODULE);
-            event.accept(ModItems.VOID_MODULE);
-            event.accept(ModItems.DURABILITY_MODULE);
-        }
     }
 }
