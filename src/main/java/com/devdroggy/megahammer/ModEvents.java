@@ -12,7 +12,6 @@ import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = MegaHammer.MOD_ID)
 public class ModEvents {
-
     @SubscribeEvent
     public static void onAttachCapabilitiesPlayer(AttachCapabilitiesEvent<Entity> event) {
         if (event.getObject() instanceof Player) {
@@ -24,12 +23,14 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onPlayerCloned(PlayerEvent.Clone event) {
-        if (event.isWasDeath()) {
-            event.getOriginal().getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(oldStore -> {
-                event.getEntity().getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(newStore -> {
-                    newStore.copyFrom(oldStore);
-                });
+        event.getOriginal().reviveCaps();
+
+        event.getOriginal().getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(oldStore -> {
+            event.getEntity().getCapability(HammerUpgradeProvider.PLAYER_UPGRADES).ifPresent(newStore -> {
+                newStore.copyFrom(oldStore);
             });
-        }
+        });
+
+        event.getOriginal().invalidateCaps();
     }
 }
