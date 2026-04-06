@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DOD",
+    "OBO",
+    "DOD"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "O": { "item": "minecraft:obsidian" },
+    "B": { "item": "minecraft:diamond_block" }
+  },
+  "result": {
+    "item": "megahammer:durability_module",
+    "count": 1
+  }
+}

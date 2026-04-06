@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " O ",
+    "OLO",
+    " O "
+  ],
+  "key": {
+    "O": { "item": "minecraft:obsidian" },
+    "L": { "item": "minecraft:lava_bucket" }
+  },
+  "result": {
+    "item": "megahammer:void_module",
+    "count": 1
+  }
+}

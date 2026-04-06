@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DHD",
+    "GSG",
+    " S "
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "H": { "item": "minecraft:iron_block" },
+    "G": { "item": "minecraft:gold_ingot" },
+    "S": { "item": "minecraft:stick" }
+  },
+  "result": {
+    "item": "megahammer:mega_hammer",
+    "count": 1
+  }
+}
