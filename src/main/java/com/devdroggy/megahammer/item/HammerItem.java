@@ -94,10 +94,11 @@ public class HammerItem extends PickaxeItem {
 
                     if (!targetState.isAir() && targetState.getDestroySpeed(level, targetPos) >= 0) {
                         List<ItemStack> drops = Block.getDrops(targetState, level, targetPos, level.getBlockEntity(targetPos), player, stack);
-                        anythingBroke = true; // บันทึกว่ามีของแตก
+                        anythingBroke = true;
 
                         for (ItemStack drop : drops) {
                             ItemStack finalDrop = drop;
+							
                             if (isAutoSmelt) {
                                 SimpleContainer container = new SimpleContainer(drop);
                                 Optional<SmeltingRecipe> recipe = level.getRecipeManager().getRecipeFor(RecipeType.SMELTING, container, level);
@@ -106,8 +107,9 @@ public class HammerItem extends PickaxeItem {
                                     finalDrop.setCount(drop.getCount() * finalDrop.getCount());
                                 }
                             }
-							if (isVoid) {
-                                Item item = drop.getItem();
+							
+                            if (isVoid) {
+                                Item item = finalDrop.getItem(); // <--- แก้ตรงนี้ครับ
                                 if (item == Items.COBBLESTONE || item == Items.COBBLED_DEEPSLATE || 
                                     item == Items.DIRT || item == Items.GRAVEL || item == Items.NETHERRACK || 
                                     item == Items.ANDESITE || item == Items.DIORITE || item == Items.GRANITE || 
@@ -116,20 +118,18 @@ public class HammerItem extends PickaxeItem {
                                     continue;
                                 }
                             }
+							
                             if (isMagnet) {
-                                if (!player.getInventory().add(finalDrop)) { Block.popResource(level, targetPos, finalDrop); }
-                            } else { Block.popResource(level, targetPos, finalDrop); }
+                                if (!player.getInventory().add(finalDrop)) { 
+                                    Block.popResource(level, targetPos, finalDrop); 
+                                }
+                            } else { 
+                                Block.popResource(level, targetPos, finalDrop); 
+                            }
                         }
-
-                        // --- NEW: แทนที่จะ destroyBlock ให้ใช้ setBlock เพื่อไม่ให้มีเสียงซ้อนกัน ---
-                        // Flag 3 คือการสั่งให้เกม update neighbor และ update state แต่ห้ามเล่น sound
+						
                         level.setBlock(targetPos, Blocks.AIR.defaultBlockState(), 3);
-
-                        // --- NEW: แทนที่จะ destroyBlock ให้ใช้ setBlock เพื่อไม่ให้มีเสียงซ้อนกัน ---
-                        // Flag 3 คือการสั่งให้เกม update neighbor และ update state แต่ห้ามเล่น sound
-                        level.setBlock(targetPos, Blocks.AIR.defaultBlockState(), 3);
-
-                        // Spawn only visual particles without triggering any block breaking sound
+						
                         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, targetState),
                                 targetPos.getX() + 0.5, targetPos.getY() + 0.5, targetPos.getZ() + 0.5,
                                 5, 0.25, 0.25, 0.25, 0.05);
